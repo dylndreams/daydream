@@ -18,6 +18,10 @@ Audio<br/>
 Executables<br/>
 basic emulation perks<br/>
 
+## Known bugs
+linux build crashes due to imgui<br/>
+Makefile doesn't work out of the box<br/>
+
 ## Credits
 Allkern (this is they're project)<br/>
 dylndreams (this is a fork)<br/>
