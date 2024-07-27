@@ -17,3 +17,6 @@ Add DVD-RW reading<br/>
 Audio<br/>
 Executables<br/>
 basic emulation perks<br/>
+
+## Credits
+
