@@ -19,4 +19,6 @@ Executables<br/>
 basic emulation perks<br/>
 
 ## Credits
+Allkern (this is they're project)<br/>
+dylndreams (this is a fork)<br/>
 
