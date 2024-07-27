@@ -9,3 +9,5 @@ Experimental Sega Dreamcast emulation library written in C (named libdream) and 
 
 ## Progress
 Working on booting 1ST_READ.BIN and BIOS
+Fix linux build
+look at flycast for bios loading
