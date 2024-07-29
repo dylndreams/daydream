@@ -12,15 +12,8 @@ Working on booting 1ST_READ.BIN and BIOS<br/>
 Fix linux build<br/>
 look at flycast for bios loading<br/>
 
-## To-Do
-Add DVD-RW reading<br/>
-Audio<br/>
-Executables<br/>
-basic emulation perks<br/>
-
-## Known bugs
-linux build crashes due to imgui<br/>
-Makefile doesn't work out of the box<br/>
+## Goal
+The goal is to make it feel like the Dreamcast Video output is on your screen.<br/>
 
 ## Credits
 Allkern (this is they're project)<br/>
