@@ -1,0 +1,4 @@
+[submodule "z8lua"]
+	path = libs/z8lua
+	url = https://github.com/samhocevar/z8lua.git
+	branch = pico8
