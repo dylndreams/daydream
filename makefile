@@ -8,7 +8,7 @@ build:
 	./build.out
 
 commit:
-	@echo msg > $(msg)
+
 	git add .
 	git commit -m $(msg)
 	git push -u origin main
