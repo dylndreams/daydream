@@ -1,8 +1,13 @@
 
-
+msg = "text here"
 
 all: build
 
 build:
-	gcc main.c -w -lSDL2 -lm -o build.out -std=c99 -Wall -Os -s
+	gcc src/main.c -w -lSDL2 -lm -o build.out -std=c99 -Wall -Os -s
 	./build.out
+
+commit:
+	git add .
+	git commit -m $(msg)
+	git push -u origin main
