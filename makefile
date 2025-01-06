@@ -1,5 +1,5 @@
 
-msg = "text here"
+msg ?= $(shell bash -c 'read -p "COMMITMSG:" msg; echo $$msg')
 
 all: build
 
@@ -8,6 +8,7 @@ build:
 	./build.out
 
 commit:
+	@echo msg > $(msg)
 	git add .
 	git commit -m $(msg)
 	git push -u origin main
