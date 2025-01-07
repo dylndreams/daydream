@@ -31,7 +31,8 @@ typedef struct { int x, y, w, h; } kit_Rect;
 typedef struct { kit_Color *pixels; int w, h; } kit_Image;
 typedef struct { kit_Rect rect; int xadv; } kit_Glyph;
 typedef struct { kit_Image *image; kit_Glyph glyphs[256]; } kit_Font;
-typedef struct { SDL_AudioDeviceID dev; SDL_AudioSpec fmt, got; } kit_Audio;
+// Structure to hold audio data
+typedef struct { Uint8* buffer; Uint32 length; Uint32 position; } kit_Audio;
 
 typedef struct {
     bool wants_quit;
@@ -135,7 +136,8 @@ int  kit_draw_text(kit_Context *ctx, kit_Color color, char *text, int x, int y);
 int  kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text, int x, int y);
 
 // AUDIO
-void kit_play_audio(kit_Context *ctx, char *filename);
+int kit_play_audio(kit_Context *ctx, char *filename, int volume, bool loop); // NOTE: add volume and loop control
+
 #endif // KIT_H
 
 //////////////////////////////////////////////////////////////////////////////
@@ -347,8 +349,6 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
         ctx->dev = SDL_OpenAudioDevice(NULL, 0, &ctx->fmt, &ctx->got, 0);
         if (ctx->dev == 0) {
             printf("Audio device could not be opened! SDL_Error: %s\n", SDL_GetError());
-        } else {
-            SDL_PauseAudioDevice(ctx->dev, 0);  // Start audio playback
         }
       }
     }
@@ -714,7 +714,78 @@ int kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text
     return x;
 }
 
+static void audio_callback(void *userdata, Uint8 *stream, int len) {
+    // variable declarations
+    static Uint8 *audio_pos; // global pointer to the audio buffer to be played
+    static Uint32 audio_len; // remaining length of the sample we have to play
+	if (audio_len ==0)
+		return;
 
+	len = ( len > audio_len ? audio_len : len );
+	//SDL_memcpy (stream, audio_pos, len); 					// simply copy from one buffer into the other
+	SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME);// mix from one buffer into another
+
+	audio_pos += len;
+	audio_len -= len;
+}
+
+
+int kit_play_audio(kit_Context *ctx, char *filename, int volume, bool loop) {
+    SDL_AudioSpec wav_spec;
+    Uint8 *wav_buffer;
+    Uint32 wav_length;
+
+    // Load the WAV file
+    if (SDL_LoadWAV(filename, &wav_spec, &wav_buffer, &wav_length) == NULL) {
+        printf("Failed to load WAV file: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    ctx->fmt = wav_spec;
+    wav_spec.callback = audio_callback;
+      // Allocate memory for mix_buffer
+    Uint8 *mix_buffer = (Uint8 *)malloc(wav_length); // Allocate the same size as wav_buffer
+    if (mix_buffer == NULL) {
+        printf("Failed to allocate memory for mix_buffer\n");
+        SDL_FreeWAV(wav_buffer); // Free wav_buffer before exiting on error
+        return 0;
+    }
+
+    // Copy wav_buffer to mix_buffer before mixing. Important!!!
+    memcpy(mix_buffer, wav_buffer, wav_length);
+
+    // Software volume scaling
+    float float_volume = (float)volume / 128.0f; // Normalize volume to 0.0-1.0 range
+    if (float_volume > 1.0f) {
+        float_volume = 1.0f; // Limit to max volume
+    } else if (float_volume < 0.0f) {
+        float_volume = 0.0f;
+    }
+      if (wav_spec.format == AUDIO_S16LSB) { //16 bit audio
+        Sint16 *samples = (Sint16 *)mix_buffer;
+        int num_samples = wav_length / 2; // 2 bytes per sample for 16-bit
+        for (int i = 0; i < num_samples; i++) {
+            samples[i] = (Sint16)(samples[i] * float_volume);
+        }
+    } else if (wav_spec.format == AUDIO_U8) { //8 bit audio
+        Uint8 *samples = (Uint8*)mix_buffer;
+        int num_samples = wav_length;
+        for (int i = 0; i < num_samples; i++) {
+            samples[i] = (Uint8)(samples[i] * float_volume);
+        }
+    }
+
+    SDL_MixAudio(mix_buffer, wav_buffer, wav_length, volume);
+    SDL_QueueAudio(ctx->dev, mix_buffer, wav_length);
+    // Start audio playback
+    SDL_PauseAudioDevice(ctx->dev, 0);
+
+    // Free the WAV buffer after queuing
+    SDL_FreeWAV(wav_buffer);
+    free(mix_buffer);
+
+  return 0;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 // PNG loader | borrowed from tigr : https://github.com/erkkah/tigr
