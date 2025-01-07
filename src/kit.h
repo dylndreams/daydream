@@ -54,6 +54,9 @@ typedef struct {
     SDL_Renderer* renderer;
     SDL_Texture* texture;
     // audio
+    SDL_mutex* audio_mutex;
+    SDL_AudioDeviceID dev;
+    SDL_AudioSpec fmt, got;
 } kit_Context;
 
 #define kit_max(a, b) ((a) > (b) ? (a) : (b))
@@ -88,21 +91,26 @@ do 0xRR, 0xGG, 0xBB. You will have to use a hexadecimal color picker offline.
 #define KIT_PURPLE   kit_rgb(0x81, 0x3f, 0xeb)
 #define KIT_BROWN    kit_rgb(0x85, 0x38, 0x0f)
 
+
+// WINDOW and FS
 kit_Context* kit_create(const char *title, int w, int h, int flags);
 void kit_destroy(kit_Context *ctx);
 bool kit_step(kit_Context *ctx, double *dt);
 void* kit_read_file(char *filename, int *len);
 
+// IMAGE
 kit_Image* kit_create_image(int w, int h);
 kit_Image* kit_load_image_file(char *filename);
 kit_Image* kit_load_image_mem(void *data, int len);
 void kit_destroy_image(kit_Image *img);
 
+// FONT
 kit_Font* kit_load_font_file(char *filename);
 kit_Font* kit_load_font_mem(void *data, int len);
 void kit_destroy_font(kit_Font *font);
 int kit_text_width(kit_Font *font, char *text);
 
+// INPUT
 int  kit_get_char(kit_Context *ctx);
 bool kit_key_down(kit_Context *ctx, int key);
 bool kit_key_pressed(kit_Context *ctx, int key);
@@ -113,6 +121,7 @@ bool kit_mouse_down(kit_Context *ctx, int button);
 bool kit_mouse_pressed(kit_Context *ctx, int button);
 bool kit_mouse_released(kit_Context *ctx, int button);
 
+// DRAW
 void kit_clear(kit_Context *ctx, kit_Color color);
 void kit_set_clip(kit_Context *ctx, kit_Rect rect);
 void kit_draw_point(kit_Context *ctx, kit_Color color, int x, int y);
@@ -123,6 +132,9 @@ void kit_draw_image2(kit_Context *ctx, kit_Color color, kit_Image *img, int x, i
 void kit_draw_image3(kit_Context *ctx, kit_Color mul_color, kit_Color add_color, kit_Image *img, kit_Rect dst, kit_Rect src);
 int  kit_draw_text(kit_Context *ctx, kit_Color color, char *text, int x, int y);
 int  kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text, int x, int y);
+
+// AUDIO
+
 
 #endif // KIT_H
 
