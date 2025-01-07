@@ -1,5 +1,5 @@
 #define KIT_IMPL
-#include "kit.h"
+#include "include/kit.h"
 
 #define KIT_RECT kit_rect(0, 0, 50, 50)
 

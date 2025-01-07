@@ -334,6 +334,7 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
         }
     }
 
+    /*
     SDL_memset(&ctx->fmt, 0, sizeof(SDL_AudioSpec));
     ctx->fmt->freq = 44100;
     ctx->fmt->format = AUDIO_F32;
@@ -354,7 +355,7 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
       }
 
     }
-
+  */
 
     ctx->font = kit_load_font_mem(kit__font_png_data, kit__font_png_size);
     ctx->prev_time = kit__now();
@@ -364,7 +365,7 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
 
 
 void kit_destroy(kit_Context *ctx) {
-    SDL_CloseAudioDevice(ctx->dev);
+    // SDL_CloseAudioDevice(ctx->dev);
     SDL_DestroyTexture(ctx->texture);
     SDL_DestroyRenderer(ctx->renderer);
     SDL_DestroyWindow( ctx->window );
