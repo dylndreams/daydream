@@ -335,6 +335,10 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
         }
     }
 
+    if (SDL_init(SDL_Init_AUDIO) < 0) {
+      printf("Audio could not initialize! SDL_Error: %s\n", SDL_GetError());
+    }
+
     ctx->font = kit_load_font_mem(kit__font_png_data, kit__font_png_size);
     ctx->prev_time = kit__now();
 
