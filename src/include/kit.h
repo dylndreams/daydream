@@ -134,7 +134,7 @@ int  kit_draw_text(kit_Context *ctx, kit_Color color, char *text, int x, int y);
 int  kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text, int x, int y);
 
 // AUDIO
-
+// nothing for now ;)
 
 #endif // KIT_H
 
