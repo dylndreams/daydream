@@ -56,7 +56,7 @@ typedef struct {
     // audio
     SDL_mutex* audio_mutex;
     SDL_AudioDeviceID dev;
-    SDL_AudioSpec fmt, got;
+    SDL_AudioSpec *fmt, *got;
 } kit_Context;
 
 #define kit_max(a, b) ((a) > (b) ? (a) : (b))
@@ -310,7 +310,6 @@ static int   kit__font_png_size;
 
 kit_Context* kit_create(const char *title, int w, int h, int flags) {
     kit_Context *ctx = kit__alloc(sizeof(kit_Context));
-
     ctx->screen = kit_create_image(w, h);
     ctx->step_time = kit__flags_to_step_time(flags);
     ctx->hide_cursor = !!(flags & KIT_HIDECURSOR);
@@ -335,9 +334,27 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
         }
     }
 
-    if (SDL_init(SDL_Init_AUDIO) < 0) {
+    SDL_memset(&ctx->fmt, 0, sizeof(SDL_AudioSpec));
+    ctx->fmt->freq = 44100;
+    ctx->fmt->format = AUDIO_F32;
+    ctx->fmt->channels = 2;
+    ctx->fmt->samples = 4096;
+    ctx->fmt->callback = NULL;
+
+
+     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
       printf("Audio could not initialize! SDL_Error: %s\n", SDL_GetError());
+    } else {
+      ctx->dev = SDL_OpenAudioDevice(NULL, 0, ctx->fmt, ctx->got, SDL_AUDIO_ALLOW_ANY_CHANGE);
+      if (ctx->dev == NULL) {
+          printf("Audio device could not be opened! SDL_Error: %s\n", SDL_GetError());
+      } else {
+        // Start audio
+        SDL_PauseAudioDevice(ctx->dev, 0);
+      }
+
     }
+
 
     ctx->font = kit_load_font_mem(kit__font_png_data, kit__font_png_size);
     ctx->prev_time = kit__now();
@@ -347,6 +364,7 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
 
 
 void kit_destroy(kit_Context *ctx) {
+    SDL_CloseAudioDevice(ctx->dev);
     SDL_DestroyTexture(ctx->texture);
     SDL_DestroyRenderer(ctx->renderer);
     SDL_DestroyWindow( ctx->window );
