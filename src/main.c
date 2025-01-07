@@ -3,7 +3,8 @@
 
 #define KIT_RECT kit_rect(0, 0, 50, 50)
 
-int main(void) {
+
+int main(int argc, char **argv) {
 
     kit_Context *ctx = kit_create("HELLO", 256, 192, KIT_SCALE2X | KIT_HIDECURSOR | KIT_FPS30);
     double *dt;

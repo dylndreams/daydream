@@ -1,23 +1,23 @@
 CC = gcc
-OBJS = src/main.o
-LDFLAGS = -Llibs/z8lua -llua -lSDL2 -lm -lc
-CFLAGS = -std=c99 -Os -s
+SRCS = src/main.c
+LDFLAGS = -Llibs/z8lua -llua -lSDL2 -lm -lc -g
+CFLAGS = -std=c99 -Oz -s -g
 
 msg ?= $(shell bash -c 'read -p "COMMITMSG:" msg; echo $$msg')
 
-all: build
+all: run
 
-build: $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) $(CFLAGS) -o build.out
+run: build
 	./build.out
 
-src/main.o: src/main.c
+build: $(SRCS)
+	$(CC) $< $(LDFLAGS) $(CFLAGS) -o build.out
+
 
 commit:
 	git add .
 	git commit -m $(msg)
 	git push -u origin main
-
 
 clean:
 	rm -f build.out $(OBJS)
