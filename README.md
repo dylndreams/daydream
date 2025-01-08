@@ -7,6 +7,9 @@ The library I'm using is called [kit](https://github.com/rxi/kit) and utilizing
 the SDL fork. I have modified it for audio and colors, and I might add some
 more.
 
+## Current progress
+I got kit.h shaped in a way where I can actually get started on such (I'll figure out the 3D part I promised)
+
 ## TODO
 * GPU/something like the GTE
 * Memory
