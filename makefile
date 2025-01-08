@@ -1,5 +1,5 @@
 CC = gcc
-SRCS = src/main.c
+SRCS = src/main.c src/cmixer.c
 LDFLAGS = -Llibs/z8lua -llua -lSDL2 -lm -lc -g
 CFLAGS = -std=c99 -Oz -s -g
 
@@ -11,8 +11,7 @@ run: build
 	./build.out
 
 build: $(SRCS)
-	$(CC) $< $(LDFLAGS) $(CFLAGS) -o build.out
-
+	$(CC) $< src/cmixer.c $(LDFLAGS) $(CFLAGS) -o build.out
 
 commit:
 	git add .

@@ -12,6 +12,7 @@
 #include <time.h>
 #include <math.h>
 #include <SDL2/SDL.h>
+#include "cmixer.h"
 
 /* These are the flags that go to the kit_create function.
 If you want more than one then do: KIT_SCALE2X | KITHIDECURSOR.
@@ -31,8 +32,6 @@ typedef struct { int x, y, w, h; } kit_Rect;
 typedef struct { kit_Color *pixels; int w, h; } kit_Image;
 typedef struct { kit_Rect rect; int xadv; } kit_Glyph;
 typedef struct { kit_Image *image; kit_Glyph glyphs[256]; } kit_Font;
-// Structure to hold audio data
-typedef struct { Uint8* buffer; Uint32 length; Uint32 position; } kit_Audio;
 
 typedef struct {
     bool wants_quit;
@@ -60,6 +59,7 @@ typedef struct {
     SDL_AudioSpec fmt, got;
 } kit_Context;
 
+static SDL_mutex* audio_mutex;
 
 #define kit_max(a, b) ((a) > (b) ? (a) : (b))
 #define kit_min(a, b) ((a) < (b) ? (a) : (b))
@@ -136,7 +136,13 @@ int  kit_draw_text(kit_Context *ctx, kit_Color color, char *text, int x, int y);
 int  kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text, int x, int y);
 
 // AUDIO
-int kit_play_audio(kit_Context *ctx, char *filename, int volume, bool loop); // NOTE: add volume and loop control
+cm_Source* kit_load_audio(char *filename);
+void kit_play_audio(cm_Source* src, int volume, bool loop);
+void kit_free_audio(cm_Source* src);
+void kit_pause_audio(cm_Source* src);
+void kit_stop_audio(cm_Source* src);
+void kit_set_pan(cm_Source* src, int pan);
+void kit_set_pitch(cm_Source* src, int pitch);
 
 #endif // KIT_H
 
@@ -306,12 +312,27 @@ static void kit__wndproc(kit_Context *ctx, SDL_Event *e) {
 
 }
 
+static void lock_handler(cm_Event *e) {
+  if (e->type == CM_EVENT_LOCK) {
+    SDL_LockMutex(audio_mutex);
+  }
+  if (e->type == CM_EVENT_UNLOCK) {
+    SDL_UnlockMutex(audio_mutex);
+}
+}
+
+
+static void audio_callback(void *udata, Uint8 *stream, int size) {
+  cm_process((void*) stream, size / 2);
+}
+
 
 static void *kit__font_png_data;
 static int   kit__font_png_size;
 
 kit_Context* kit_create(const char *title, int w, int h, int flags) {
     kit_Context *ctx = kit__alloc(sizeof(kit_Context));
+    printf("Welcome to KIT!\n");
     ctx->screen = kit_create_image(w, h);
     ctx->step_time = kit__flags_to_step_time(flags);
     ctx->hide_cursor = !!(flags & KIT_HIDECURSOR);
@@ -325,13 +346,14 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
     } else {
         ctx->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, ctx->win_w, ctx->win_h, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+        printf("Window initialized!\n");
         if(ctx->window == NULL) {
             printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         } else {
             ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
             ctx->texture = SDL_CreateTexture(ctx->renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STATIC, ctx->screen->w, ctx->screen->h);
-
             SDL_ShowCursor(!ctx->hide_cursor);
+            printf("Renderer initialized!\n");
 
         }
         if (SDL_GetNumAudioDevices(SDL_FALSE) == 0) {
@@ -343,19 +365,31 @@ kit_Context* kit_create(const char *title, int w, int h, int flags) {
           ctx->fmt.format    = AUDIO_S16;
           ctx->fmt.channels  = 2;
           ctx->fmt.samples   = 1024;
-          ctx->fmt.callback  = NULL;
+          ctx->fmt.callback  = audio_callback;
+
+          audio_mutex = SDL_CreateMutex();
+          /* Init library */
+          cm_init(ctx->fmt.freq);
+          cm_set_lock(lock_handler);
+          cm_set_master_gain(1.0);
 
         // Initialize audio
         ctx->dev = SDL_OpenAudioDevice(NULL, 0, &ctx->fmt, &ctx->got, 0);
+        printf("Audio Device initialized!\n");
         if (ctx->dev == 0) {
             printf("Audio device could not be opened! SDL_Error: %s\n", SDL_GetError());
+        } else {
+          /* Start audio */
+          SDL_PauseAudioDevice(ctx->dev, 0);
         }
       }
     }
 
     ctx->font = kit_load_font_mem(kit__font_png_data, kit__font_png_size);
+    printf("Font initialized!\n");
     ctx->prev_time = kit__now();
-
+    printf("Initialization Complete!\n");
+    fflush(stdout);
     return ctx;
 }
 
@@ -368,6 +402,7 @@ void kit_destroy(kit_Context *ctx) {
     kit_destroy_font(ctx->font);
     free(ctx);
     SDL_Quit();
+    printf("Bye Bye!\n");
 }
 
 
@@ -714,77 +749,68 @@ int kit_draw_text2(kit_Context *ctx, kit_Color color, kit_Font *font, char *text
     return x;
 }
 
-static void audio_callback(void *userdata, Uint8 *stream, int len) {
-    // variable declarations
-    static Uint8 *audio_pos; // global pointer to the audio buffer to be played
-    static Uint32 audio_len; // remaining length of the sample we have to play
-	if (audio_len ==0)
-		return;
+//////////////////////////////////////////////////////////////////////////////
+// AUDIO | uses cmixer : https://github.com/rxi/cmixer
+//////////////////////////////////////////////////////////////////////////////
 
-	len = ( len > audio_len ? audio_len : len );
-	//SDL_memcpy (stream, audio_pos, len); 					// simply copy from one buffer into the other
-	SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME);// mix from one buffer into another
-
-	audio_pos += len;
-	audio_len -= len;
+cm_Source* kit_load_audio(char *filename) {
+    return cm_new_source_from_file(filename);
 }
 
-
-int kit_play_audio(kit_Context *ctx, char *filename, int volume, bool loop) {
-    SDL_AudioSpec wav_spec;
-    Uint8 *wav_buffer;
-    Uint32 wav_length;
-
-    // Load the WAV file
-    if (SDL_LoadWAV(filename, &wav_spec, &wav_buffer, &wav_length) == NULL) {
-        printf("Failed to load WAV file: %s\n", SDL_GetError());
-        return 0;
+void kit_play_audio(cm_Source* src, int volume, bool loop) {
+    if (!src) {
+    printf("Error loading audio: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+     cm_set_gain(src, volume);
+     cm_set_loop(src, loop);
+     cm_play(src);
     }
+}
 
-    ctx->fmt = wav_spec;
-    wav_spec.callback = audio_callback;
-      // Allocate memory for mix_buffer
-    Uint8 *mix_buffer = (Uint8 *)malloc(wav_length); // Allocate the same size as wav_buffer
-    if (mix_buffer == NULL) {
-        printf("Failed to allocate memory for mix_buffer\n");
-        SDL_FreeWAV(wav_buffer); // Free wav_buffer before exiting on error
-        return 0;
+void kit_free_audio(cm_Source* src) {
+   if (!src) {
+    printf("Error freeing audio: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+    cm_destroy_source(src);
     }
+}
 
-    // Copy wav_buffer to mix_buffer before mixing. Important!!!
-    memcpy(mix_buffer, wav_buffer, wav_length);
-
-    // Software volume scaling
-    float float_volume = (float)volume / 128.0f; // Normalize volume to 0.0-1.0 range
-    if (float_volume > 1.0f) {
-        float_volume = 1.0f; // Limit to max volume
-    } else if (float_volume < 0.0f) {
-        float_volume = 0.0f;
+void kit_pause_audio(cm_Source* src) {
+   if (!src) {
+    printf("Error pausing audio: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+    cm_pause(src);
     }
-      if (wav_spec.format == AUDIO_S16LSB) { //16 bit audio
-        Sint16 *samples = (Sint16 *)mix_buffer;
-        int num_samples = wav_length / 2; // 2 bytes per sample for 16-bit
-        for (int i = 0; i < num_samples; i++) {
-            samples[i] = (Sint16)(samples[i] * float_volume);
-        }
-    } else if (wav_spec.format == AUDIO_U8) { //8 bit audio
-        Uint8 *samples = (Uint8*)mix_buffer;
-        int num_samples = wav_length;
-        for (int i = 0; i < num_samples; i++) {
-            samples[i] = (Uint8)(samples[i] * float_volume);
-        }
+}
+
+void kit_stop_audio(cm_Source* src) {
+   if (!src) {
+    printf("DONT STOP THE MUSIC!: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+    cm_stop(src);
     }
+}
 
-    SDL_MixAudio(mix_buffer, wav_buffer, wav_length, volume);
-    SDL_QueueAudio(ctx->dev, mix_buffer, wav_length);
-    // Start audio playback
-    SDL_PauseAudioDevice(ctx->dev, 0);
+void kit_set_pan(cm_Source* src, int pan) {
+   if (!src) {
+    printf("Error panning audio: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+    cm_set_pan(src, pan);
+    }
+}
 
-    // Free the WAV buffer after queuing
-    SDL_FreeWAV(wav_buffer);
-    free(mix_buffer);
-
-  return 0;
+void kit_set_pitch(cm_Source* src, int pitch) {
+   if (!src) {
+    printf("Error pitching audio: %s\n", cm_get_error());
+    fflush(stdout);
+    } else {
+    cm_set_pitch(src, pitch);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
