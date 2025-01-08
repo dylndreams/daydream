@@ -143,6 +143,7 @@ void kit_pause_audio(cm_Source* src);
 void kit_stop_audio(cm_Source* src);
 void kit_set_pan(cm_Source* src, int pan);
 void kit_set_pitch(cm_Source* src, int pitch);
+int kit_audio_state(cm_Source* src);
 
 #endif // KIT_H
 
@@ -445,6 +446,7 @@ bool kit_step(kit_Context *ctx, double *dt) {
     for (int i = 0; i < sizeof(ctx->mouse_state); i++) {
         ctx->key_state[i] &= ~(KIT_INPUT_PRESSED | KIT_INPUT_RELEASED);
     }
+
 
     // handle events
     SDL_Event e;
@@ -810,6 +812,16 @@ void kit_set_pitch(cm_Source* src, int pitch) {
     fflush(stdout);
     } else {
     cm_set_pitch(src, pitch);
+    }
+}
+
+int kit_audio_state(cm_Source* src) {
+    if (!src) {
+    printf("Error fetching audio state: %s\n", cm_get_error());
+    fflush(stdout);
+    return 0;
+    } else {
+    cm_get_state(src);
     }
 }
 

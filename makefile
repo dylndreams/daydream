@@ -8,15 +8,15 @@ msg ?= $(shell bash -c 'read -p "COMMITMSG:" msg; echo $$msg')
 all: run
 
 run: build
-	./build.out
+	@./build.out
 
 build: $(SRCS)
-	$(CC) $< src/cmixer.c $(LDFLAGS) $(CFLAGS) -o build.out
+	@$(CC) $< src/cmixer.c $(LDFLAGS) $(CFLAGS) -o build.out
 
 commit:
-	git add .
-	git commit -m $(msg)
-	git push -u origin main
+	@git add .
+	@git commit -m $(msg)
+	@git push -u origin main
 
 clean:
 	rm -f build.out $(OBJS)
